@@ -14,13 +14,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Calculate whether the specified package(s) and their dependencies support Python 3."""
+"""Calculate whether the specified package(s) and their dependencies support Python 3.
+
+<requirements_path>: path to a pkg_resources requirements file (e.g. requirements.txt)
+<metadata_path>: path to a PEP 426 metadata file (e.g. PKG-INFO, pydist.json)
+<projects>: a space-separated list of projects
+
+Usage:
+    caniusepython3 [--verbose] (-r | --requirements) <requirements_path>
+    caniusepython3 [--verbose] (-m | --metadata) <metadata_path>
+    caniusepython3 [--verbose] (-p | --projects) <projects>...
+    caniusepython3 (-h | --help)
+    caniusepython3 --version
+
+"""
 
 import distlib.locators
 import distlib.metadata
 import pip.req
 
-import argparse  # Python 3.2
 import concurrent.futures  # Python 3.2
 import io
 import logging
@@ -28,6 +40,9 @@ import multiprocessing
 import re
 import sys
 import xmlrpc.client
+import pkg_resources
+from docopt import docopt
+
 
 try:
     CPU_COUNT = max(2, multiprocessing.cpu_count())
@@ -185,32 +200,21 @@ def projects_from_metadata(metadata):
 
 def projects_from_cli(args):
     """Take arguments through the CLI can create a list of specified projects."""
-    description = ('Determine if a set of project dependencies will work with '
-                   'Python 3')
-    parser = argparse.ArgumentParser(description=description)
-    req_help = ('path to a pkg_resources requirements file '
-                '(e.g. requirements.txt)')
-    parser.add_argument('--requirements', '-r', nargs='?',
-                        help=req_help)
-    meta_help = 'path to a PEP 426 metadata file (e.g. PKG-INFO, pydist.json)'
-    parser.add_argument('--metadata', '-m', nargs='?',
-                        help=meta_help)
-    parser.add_argument('--projects', '-p', type=lambda arg: arg.split(','),
-                        nargs='?', help='a comma-separated list of projects')
-    parser.add_argument('--verbose', '-v', action='store_true',
-                        help='verbose output')
-    parsed = parser.parse_args(args)
-
+    parsed = docopt(
+        __doc__,
+        argv=args,
+        version=str(pkg_resources.require('caniusepython3')[0].version)
+    )
     projects = []
-    if parsed.verbose:
+    if parsed['--verbose']:
         logging.getLogger().setLevel(logging.INFO)
-    if parsed.requirements:
-        projects.extend(projects_from_requirements(parsed.requirements))
-    if parsed.metadata:
-        with open(parsed.metadata) as file:
+    if parsed['--requirements']:
+        projects.extend(projects_from_requirements(parsed['<requirements_path>']))
+    if parsed['--metadata']:
+        with open(parsed['<metadata_path>']) as file:
             projects.extend(projects_from_metadata(file.read()))
-    if parsed.projects:
-        projects.extend(parsed.projects)
+    if parsed['--projects']:
+        projects.extend(parsed['<projects>'])
 
     return projects
 
